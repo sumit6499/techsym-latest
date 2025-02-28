@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Student {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  email       String    @unique
+  updatedAt   DateTime  @updatedAt
+  name        String
+  phoneNo     String    @map("phone_no") @db.Char(10)
+  collegeName String    @map("college_name")
+  Year        String    @default("1")
+  role        String    @default("Student")
+  payment     Payment[]
+  events      Event[]   @relation("StudentEvents")
+
+  @@index([email, name])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  image         String
+  paymentStatus String   @default("Unpaid")
+  paymentMethod String   @default("UPI")
+  Student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studentId     String   @unique
+}
+
+model Admin {
+  id       String @id @default(cuid())
+  username String
+  password String
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  title       String
+  description String
+  time        String
+  location    String
+  category    String
+  date        String
+  students    Student[] @relation("StudentEvents")
+  eventImage  String
+
+  @@index([title, date])
+}
