@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Search, Download, RefreshCw, Eye } from "lucide-react";
+import { Search, Download, RefreshCw } from "lucide-react";
 import StudentTable from "./components/student-table";
 import axios from "axios";
 
@@ -13,11 +13,11 @@ interface Student {
   id: number;
   name: string;
   email: string;
-  events: string;
+  eventName: string;
   isPaid: boolean;
   registrationDate: string;
   paymentMethod: string;
-  paymentImage?: string; // ✅ Added Payment Screenshot URL
+  paymentImage?: string;
 }
 
 interface Event {
@@ -42,7 +42,7 @@ export default function AdminDashboard() {
 
   const fetchStudents = async () => {
     try {
-      const res = await axios.get("/api/students");
+      const res = await axios.get<{ students: Student[] }>("/api/students");
       setStudents(res.data.students);
       setFilteredStudents(res.data.students);
     } catch (error) {
@@ -52,9 +52,10 @@ export default function AdminDashboard() {
 
   const fetchEvents = async () => {
     try {
-      const res = await axios.get("/api/events");
+      const res = await axios.get<Event[]>("/api/events");
       setEvents(res.data);
     } catch (err) {
+      console.error("Error fetching events", err);
       setError("Error fetching events. Please try again.");
     } finally {
       setLoading(false);
@@ -88,11 +89,11 @@ export default function AdminDashboard() {
       );
     }
 
-    if (event && event !== "all") {
-      result = result.filter((student) => student.events === event);
+    if (event !== "all") {
+      result = result.filter((student) => student.eventName === event);
     }
 
-    if (payment && payment !== "all") {
+    if (payment !== "all") {
       const isPaid = payment === "paid";
       result = result.filter((student) => student.isPaid === isPaid);
     }
@@ -106,6 +107,18 @@ export default function AdminDashboard() {
     setPaymentStatus("all");
     setFilteredStudents(students);
   };
+
+  if (loading) {
+    return (
+      <div className="flex w-full h-screen justify-center items-center">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error) {
+    throw new Error(error);
+  }
 
   return (
     <div className="space-y-6">
@@ -167,7 +180,6 @@ export default function AdminDashboard() {
             </Select>
           </div>
 
-          {/* ✅ Updated Student Table with Payment Screenshot */}
           <StudentTable students={filteredStudents} />
         </CardContent>
       </Card>
