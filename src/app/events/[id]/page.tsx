@@ -3,16 +3,18 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { db } from "@/lib/db"; // Import Prisma instance
+import { db } from "@/lib/db";
 import Link from "next/link";
 
-export default async function EventPage({ params }: { params: { id: string } }) {
-  // ✅ Fetch the event directly from the database
+type tParams = Promise<{ id: string }>;
+
+export default async function EventPage({ params }: { params: tParams }) {
+  const { id } = await params;
+  
   const event = await db.event.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
-  // If no event is found, return a 404 page
   if (!event) {
     notFound();
   }
@@ -23,7 +25,7 @@ export default async function EventPage({ params }: { params: { id: string } }) 
         {/* Event Image */}
         <div className="relative h-64 md:h-full">
           <Image
-            src={event.eventImage || "/placeholder.svg"} // ✅ Corrected field name
+            src={event.eventImage || "/placeholder.svg"}
             alt={event.title}
             fill
             className="object-cover rounded-lg"
@@ -40,7 +42,7 @@ export default async function EventPage({ params }: { params: { id: string } }) 
           <div className="space-y-2 mb-6">
             <div className="flex items-center">
               <CalendarDays className="w-5 h-5 mr-2 text-gray-500" />
-              <span>{new Date(event.date).toLocaleDateString()}</span> {/* ✅ Formatted Date */}
+              <span>{new Date(event.date).toLocaleDateString()}</span>
             </div>
             <div className="flex items-center">
               <Clock className="w-5 h-5 mr-2 text-gray-500" />

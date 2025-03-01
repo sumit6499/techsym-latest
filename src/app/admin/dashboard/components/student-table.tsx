@@ -25,11 +25,9 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal, Mail, Eye, Edit, Trash, CheckCircle, XCircle, ImageIcon } from "lucide-react";
 import type { Student } from "@/lib/types";
 
-interface StudentTableProps {
-  students: Student[];
-}
 
-export default function StudentTable({ students }: StudentTableProps) {
+
+export default function StudentTable({ students }: any) {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
@@ -69,7 +67,7 @@ export default function StudentTable({ students }: StudentTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              students.map((student) => (
+              students.map((student:any) => (
                 <TableRow key={student.id}>
                   <TableCell className="font-medium">{student.id}</TableCell>
                   <TableCell>{student.name}</TableCell>

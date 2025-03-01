@@ -18,7 +18,7 @@ interface Event {
 }
 
 interface EventsListProps {
-  events: Event[];
+  events: any[];
 }
 
 export default function EventsList({ events }: EventsListProps) {

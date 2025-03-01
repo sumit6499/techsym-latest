@@ -13,7 +13,7 @@ interface Student {
   id: number;
   name: string;
   email: string;
-  eventName: string;
+  events: string;
   isPaid: boolean;
   registrationDate: string;
   paymentMethod: string;
@@ -90,7 +90,7 @@ export default function AdminDashboard() {
     }
 
     if (event !== "all") {
-      result = result.filter((student) => student.eventName === event);
+      result = result.filter((student) => student.events === event);
     }
 
     if (payment !== "all") {

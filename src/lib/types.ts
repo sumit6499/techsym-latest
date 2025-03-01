@@ -2,10 +2,11 @@ export interface Student {
     id: number
     name: string
     email: string
-    eventName: string
+    events: string
     registrationDate: string
     isPaid: boolean
     paymentMethod?: string
+    paymentImage: string
   }
   
   export interface Event {
