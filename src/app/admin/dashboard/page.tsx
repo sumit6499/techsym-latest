@@ -1,7 +1,7 @@
 "use client";
 
+
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -62,21 +62,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    applyFilters(e.target.value, selectedEvent, paymentStatus);
-  };
-
-  const handleEventFilter = (value: string) => {
-    setSelectedEvent(value);
-    applyFilters(searchQuery, value, paymentStatus);
-  };
-
-  const handlePaymentFilter = (value: string) => {
-    setPaymentStatus(value);
-    applyFilters(searchQuery, selectedEvent, value);
-  };
-
   const applyFilters = (search: string, event: string, payment: string) => {
     let result = students;
 
@@ -108,6 +93,35 @@ export default function AdminDashboard() {
     setFilteredStudents(students);
   };
 
+  const groupStudentsByEvent = (students: Student[]) => {
+    return students.reduce((acc, student) => {
+      if (!acc[student.events]) {
+        acc[student.events] = [];
+      }
+      acc[student.events].push(student);
+      return acc;
+    }, {} as Record<string, Student[]>);
+  };
+
+  const exportEventData = (eventTitle: string, students: Student[]) => {
+    const csvContent = [
+      "ID,Name,Email,Payment Status,Registration Date,Payment Method",
+      ...students.map(student => `${student.id},${student.name},${student.email},${student.isPaid ? "Paid" : "Unpaid"},${student.registrationDate},${student.paymentMethod}`)
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${eventTitle.replace(/\s+/g, "_")}_Registrations.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const groupedStudents = groupStudentsByEvent(filteredStudents);
+
   if (loading) {
     return (
       <div className="flex w-full h-screen justify-center items-center">
@@ -122,24 +136,29 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col space-y-2 md:flex-row md:items-center md:justify-between md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage student registrations and payments for tech events</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Button variant="outline" size="sm" onClick={resetFilters}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Reset Filters
-          </Button>
-        </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <Button variant="outline" size="sm" onClick={resetFilters}>
+          <RefreshCw className="mr-2 h-4 w-4" /> Reset Filters
+        </Button>
       </div>
 
-      <Card>
+      {Object.entries(groupedStudents).map(([eventTitle, students]) => (
+        <div key={eventTitle} className="border rounded-lg p-4 shadow-md">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-semibold">{eventTitle} Registrations</h2>
+            <Button variant="outline" size="sm" onClick={() => exportEventData(eventTitle, students)}>
+              <Download className="mr-2 h-4 w-4" /> Export Data
+            </Button>
+          </div>
+          <StudentTable students={students} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+{/* <Card>
         <CardHeader>
           <CardTitle>Student Registrations</CardTitle>
           <CardDescription>View and manage all student registrations for tech events</CardDescription>
@@ -182,7 +201,4 @@ export default function AdminDashboard() {
 
           <StudentTable students={filteredStudents} />
         </CardContent>
-      </Card>
-    </div>
-  );
-}
+      </Card> */}
