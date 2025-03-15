@@ -52,55 +52,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Fetch existing team members to prevent multiple DB queries in loop
-    const existingStudents = await db.student.findMany({
-      where: { email: { in: teamMembers.map((m) => m.email) } },
+    // Fetch existing students for team members (if any)
+    const existingStudents = eventType === "group" && teamMembers.length > 0 ? 
+      await db.student.findMany({
+        where: { email: { in: teamMembers.map((m) => m.email) } },
+      }) : [];
+
+    // 1️⃣ Register the student
+    const student = await db.student.create({
+      data: {
+        name,
+        email,
+        phoneNo: phone,
+        collegeName,
+        Year: year,
+        events: { connect: { id: existingEvent.id } },
+      },
     });
 
-    // ✅ Use Prisma transaction to handle all operations atomically
-    const result = await db.$transaction(async (prisma) => {
-      // 1️⃣ Register the student
-      const student = await prisma.student.create({
-        data: {
-          name,
-          email,
-          phoneNo: phone,
-          collegeName,
-          Year: year,
-          events: { connect: { id: existingEvent.id } },
-        },
-      });
+    // 2️⃣ Register the student for the event
+    const registration = await db.registration.create({
+      data: {
+        registrationType: eventType,
+        totalAmount: totalFee,
+        participantCount: eventType === "group" ? teamMembers.length + 1 : 1,
+        student: { connect: { id: student.id } },
+        event: { connect: { id: existingEvent.id } },
+      },
+    });
 
-      // 2️⃣ Register the student for the event
-      const registration = await prisma.registration.create({
-        data: {
-          registrationType: eventType,
-          totalAmount: totalFee,
-          participantCount: eventType === "group" ? teamMembers.length + 1 : 1,
-          student: { connect: { id: student.id } },
-          event: { connect: { id: existingEvent.id } },
-        },
-      });
+    // 3️⃣ Add payment details
+    const payment = await db.payment.create({
+      data: {
+        image: paymentImage,
+        paymentMethod,
+        paymentStatus: "Paid",
+        paymentId,
+        amount: totalFee,
+        Student: { connect: { id: student.id } },
+        registration: { connect: { id: registration.id } },
+      },
+    });
 
-      // 3️⃣ Add payment details
-      const payment = await prisma.payment.create({
-        data: {
-          image: paymentImage,
-          paymentMethod,
-          paymentStatus: "Paid",
-          paymentId,
-          amount: totalFee,
-          Student: { connect: { id: student.id } },
-          registration: { connect: { id: registration.id } },
-        },
-      });
-
-      // 4️⃣ Add team members (if group registration)
-      if (eventType === "group" && teamMembers.length > 0) {
-        const teamMemberPromises = teamMembers.map((member) => {
+    // 4️⃣ Add team members (if group registration)
+    let teamMembersCreated:unknown = [];
+    if (eventType === "group" && teamMembers.length > 0) {
+      teamMembersCreated = await Promise.all(
+        teamMembers.map(async (member) => {
           const existingStudent = existingStudents.find((s) => s.email === member.email);
-
-          return prisma.teamMember.create({
+          
+          return db.teamMember.create({
             data: {
               name: member.name,
               email: member.email,
@@ -109,19 +110,16 @@ export async function POST(req: NextRequest) {
               ...(existingStudent && { studentMember: { connect: { id: existingStudent.id } } }),
             },
           });
-        });
-
-        await Promise.all(teamMemberPromises);
-      }
-
-      return { student, registration, payment };
-    });
+        })
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      student: result.student,
-      registration: result.registration,
-      payment: result.payment,
+      student,
+      registration,
+      payment,
+      ...(teamMembersCreated.length > 0 && { teamMembers: teamMembersCreated }),
     }, { status: HTTP_CODE.CREATED });
 
   } catch (error) {
@@ -143,8 +141,8 @@ export async function POST(req: NextRequest) {
 
     if (error instanceof PrismaClientInitializationError) {
       return new NextResponse(
-        JSON.stringify({ msg: "Database Initialization error" }),
-        { status: HTTP_CODE.BAD_REQUEST, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ msg: "Database connection error" }),
+        { status: HTTP_CODE.NOT_FOUND, headers: { "Content-Type": "application/json" } }
       );
     }
 
