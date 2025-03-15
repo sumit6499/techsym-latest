@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     // 4️⃣ Add team members (if group registration)
     let teamMembersCreated:unknown[] = [];
     if (eventType === "group" && teamMembers.length > 0) {
-      teamMembersCreated = await Promise.all(
+      Promise.all(
         teamMembers.map(async (member) => {
           const existingStudent = existingStudents.find((s) => s.email === member.email);
           
