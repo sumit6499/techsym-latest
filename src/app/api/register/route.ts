@@ -6,6 +6,8 @@ import { HTTP_CODE } from "@/lib/http-codes";
 import { db } from "@/lib/db";
 import { CustomError } from "@/lib/error";
 
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
