@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         teamMembers.map(async (member) => {
           const existingStudent = existingStudents.find((s) => s.email === member.email);
           
-          return db.teamMember.create({
+          return await db.teamMember.create({
             data: {
               name: member.name,
               email: member.email,
