@@ -4,8 +4,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const events = await db.event.findMany({
-      select: { id: true, title: true },
-      orderBy: { date: "asc" },
+      include: { students: true },
     });
     return NextResponse.json(events);
   } catch (error) {

@@ -18,6 +18,7 @@ interface Student {
   registrationDate: string;
   paymentMethod: string;
   paymentImage?: string;
+  registrationType:string
 }
 
 interface Event {
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const fetchStudents = async () => {
     try {
       const res = await axios.get<{ students: Student[] }>("/api/students");
+      console.log(res.data.students)
       setStudents(res.data.students);
       setFilteredStudents(res.data.students);
     } catch (error) {

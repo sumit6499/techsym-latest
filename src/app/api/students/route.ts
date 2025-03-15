@@ -7,10 +7,27 @@ export async function GET() {
     try {
         const students = await db.student.findMany({
             include: {
-                payment: true,
-                events: { // Include event details
+                payment: {
                     select: {
-                        title: true
+                        paymentStatus: true,
+                        image: true,
+                        paymentMethod: true,
+                        amount: true
+                    }
+                },
+                registrations: {
+                    include: {
+                        event: {
+                            select: {
+                                title: true
+                            }
+                        },
+                        teamMembers: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 }
             }
@@ -24,11 +41,17 @@ export async function GET() {
                 id: student.id,
                 name: student.name,
                 email: student.email,
-                isPaid: student.payment[0]?.paymentStatus || "Unpaid",
-                registrationDate: student.createdAt,
-                paymentMethod: "UPI",
-                events: student.events[0].title,
-                paymentImage:student.payment[0].image
+                event: student.registrations.length > 0 ? student.registrations[0].event.title : "N/A",
+                registrationType: student.registrations.length > 0 ? student.registrations[0].registrationType : "N/A",
+                teamMembers: student.registrations.length > 0 ? student.registrations[0].teamMembers.map(member => ({
+                    id: member.id,
+                    name: member.name
+                })) : [],
+                totalAmountPaid: student.payment.length > 0 ? student.payment.reduce((sum, p) => sum + p.amount, 0) : 0,
+                isPaid: student.payment.length > 0 && student.payment.some(p => p.paymentStatus === "Paid"),
+                paymentMethod: student.payment.length > 0 ? student.payment[0].paymentMethod : "N/A",
+                paymentImage: student.payment.length > 0 ? student.payment[0].image : null,
+                registrationDate: student.createdAt
             }))
         }), {
             status: HTTP_CODE.OK,

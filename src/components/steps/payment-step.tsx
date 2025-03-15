@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import type { FormData } from "@/app/register/page"
-import { Upload, AlertCircle } from "lucide-react"
+import { Upload, AlertCircle, Users } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Image from "next/image"
 import dummyQR from '@/public/dummyqr.png'
@@ -43,6 +43,22 @@ interface PaymentStepProps {
 export default function PaymentStep({ formData, updateFormData, onNext, onPrev }: PaymentStepProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [totalFee, setTotalFee] = useState(100)
+  const [participantCount, setParticipantCount] = useState(1)
+
+  
+  useEffect(() => {
+    const baseRate = 100 
+    let count = 1 
+
+    if (formData.eventType === "group" && formData.teamMembers && formData.teamMembers.length > 0) {
+      
+      count = formData.teamMembers.length + 1
+    }
+
+    setParticipantCount(count)
+    setTotalFee(baseRate * count)
+  }, [formData.eventType, formData.teamMembers])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,13 +70,14 @@ export default function PaymentStep({ formData, updateFormData, onNext, onPrev }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true)
-    formData.paymentId=values.paymentId;
+    formData.paymentId = values.paymentId
+    formData.totalFee = totalFee 
     console.log(formData)
     
     try {
-        const res=await axios.post('/api/register',formData,{
-            headers:{
-              "Content-Type":"application/json"
+        const res = await axios.post('/api/register', formData, {
+            headers: {
+              "Content-Type": "application/json"
             }
         })
 
@@ -68,20 +85,21 @@ export default function PaymentStep({ formData, updateFormData, onNext, onPrev }
         toast.success("Event registration success!")
 
         setTimeout(() => {
-            updateFormData(values)
+            updateFormData({
+              ...values,
+              totalFee: totalFee
+            })
             setIsSubmitting(false)
             onNext()
         }, 500)
 
     } catch (error) {
         console.log(error)
-        toast.error("Failed to register for success!",{
-            description: "Please Reregister!"
+        toast.error("Failed to register for event!", {
+            description: "Please try again!"
         })
+        setIsSubmitting(false)
     }
-
-
-    
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,12 +141,40 @@ export default function PaymentStep({ formData, updateFormData, onNext, onPrev }
 
       <div className="bg-gray-50 p-4 rounded-lg mb-6">
         <h3 className="font-medium text-lg mb-2">Registration Summary</h3>
-        <p>
-          <span className="font-medium">Event:</span> {getEventName(formData.event)}
-        </p>
-        <p>
-          <span className="font-medium">Fee:</span> $25.00
-        </p>
+        <div className="space-y-2">
+          <p>
+            <span className="font-medium">Event:</span> {getEventName(formData.event)}
+          </p>
+          <p>
+            <span className="font-medium">Registration Type:</span> {formData.eventType === "group" ? "Group" : "Individual"}
+          </p>
+          
+          {formData.eventType === "group" && formData.teamMembers && (
+            <div className="flex items-center gap-1 text-sm">
+              <Users className="h-4 w-4" />
+              <span>{participantCount} participants (You + {participantCount - 1} team members)</span>
+            </div>
+          )}
+          
+          <div className="pt-2 border-t mt-2">
+            <div className="flex justify-between">
+              <span className="font-medium">Base Fee:</span>
+              <span>₹100 per participant</span>
+            </div>
+            
+            {formData.eventType === "group" && (
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Calculation:</span>
+                <span>₹100 × {participantCount} participants</span>
+              </div>
+            )}
+            
+            <div className="flex justify-between font-bold text-lg mt-2">
+              <span>Total Fee:</span>
+              <span>₹{totalFee.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 items-center justify-center mb-6">
@@ -143,7 +189,7 @@ export default function PaymentStep({ formData, updateFormData, onNext, onPrev }
           <h3 className="font-medium mb-2">Payment Instructions</h3>
           <ol className="list-decimal list-inside text-sm space-y-1 text-left">
             <li>Scan the QR code with your banking app</li>
-            <li>Complete the payment of ₹25.00</li>
+            <li>Complete the payment of ₹{totalFee.toFixed(2)}</li>
             <li>Take a screenshot of your payment confirmation</li>
             <li>Upload the screenshot below</li>
             <li>Enter the payment reference ID</li>
@@ -234,4 +280,3 @@ export default function PaymentStep({ formData, updateFormData, onNext, onPrev }
     </div>
   )
 }
-

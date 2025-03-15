@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, Trash2 } from "lucide-react";
 import type { FormData } from "@/app/register/page";
 
 const formSchema = z.object({
@@ -17,6 +18,13 @@ const formSchema = z.object({
   academicYear: z.string().min(1, { message: "Please select your academic year." }),
   event: z.string().min(1, { message: "Please select an event." }),
   email: z.string().email({ message: "Please enter a valid email" }),
+  eventType: z.string().min(1, { message: "Please select event type." }),
+  teamMembers: z.array(
+    z.object({
+      name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+      email: z.string().email({ message: "Please enter a valid email" }),
+    })
+  ).optional(),
 });
 
 interface PersonalInfoStepProps {
@@ -30,6 +38,10 @@ export default function PersonalInfoStep({ formData, updateFormData, onNext }: P
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [eventType, setEventType] = useState(formData.eventType || "single");
+  const [teamMembers, setTeamMembers] = useState(
+    formData.teamMembers || [{name: "", email: ""}]
+  );
 
   useEffect(() => {
     async function fetchEvents() {
@@ -57,13 +69,48 @@ export default function PersonalInfoStep({ formData, updateFormData, onNext }: P
       academicYear: formData.academicYear,
       event: formData.event,
       email: formData.email,
+      eventType: formData.eventType || "single",
+      teamMembers: formData.teamMembers || [{name: "", email: ""}],
     },
   });
+
+  const handleAddTeamMember = () => {
+    setTeamMembers([...teamMembers, {name: "", email: ""}]);
+    form.setValue("teamMembers", [...teamMembers, {name: "", email: ""}]);
+  };
+
+  const handleRemoveTeamMember = (index: number) => {
+    const updatedMembers = teamMembers.filter((data:unknown, i) => i !== index);
+    setTeamMembers(updatedMembers);
+    form.setValue("teamMembers", updatedMembers);
+  };
+
+  const handleTeamMemberChange = (index: number, field: string, value: string) => {
+    const updatedMembers = [...teamMembers];
+    updatedMembers[index] = { ...updatedMembers[index], [field]: value };
+    setTeamMembers(updatedMembers);
+    form.setValue("teamMembers", updatedMembers);
+  };
+
+  const handleEventTypeChange = (value: string) => {
+    setEventType(value);
+    form.setValue("eventType", value);
+    if (value === "single") {
+      form.setValue("teamMembers", []);
+    } else {
+      form.setValue("teamMembers", teamMembers);
+    }
+  };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     setTimeout(() => {
-      updateFormData(values);
+      const formDataToUpdate = {
+        ...values,
+        eventType: eventType,
+        teamMembers: eventType === "group" ? teamMembers : [],
+      };
+      updateFormData(formDataToUpdate);
       setIsSubmitting(false);
       onNext();
     }, 500);
@@ -188,6 +235,94 @@ export default function PersonalInfoStep({ formData, updateFormData, onNext }: P
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="eventType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Event Type</FormLabel>
+                <Select 
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    handleEventTypeChange(value);
+                  }} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select event type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="single">Single Participant</SelectItem>
+                    <SelectItem value="group">Group Participation</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {eventType === "group" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Team Members</h3>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleAddTeamMember}
+                  className="flex items-center gap-2"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Add Member
+                </Button>
+              </div>
+              
+              {teamMembers.map((member, index) => (
+                <div key={index} className="p-4 border rounded-md space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-medium">Team Member {index + 1}</h4>
+                    {index > 0 && (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleRemoveTeamMember(index)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Enter team member's name" 
+                          value={member.name}
+                          onChange={(e) => handleTeamMemberChange(index, "name", e.target.value)}
+                        />
+                      </FormControl>
+                    </FormItem>
+                    
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Enter team member's email" 
+                          value={member.email}
+                          onChange={(e) => handleTeamMemberChange(index, "email", e.target.value)}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="pt-4 flex justify-end">
             <Button type="submit" disabled={isSubmitting}>

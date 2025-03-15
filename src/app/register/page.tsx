@@ -7,6 +7,11 @@ import PaymentStep from "@/components/steps/payment-step"
 import ConfirmationStep from "@/components/steps/confirmation-step"
 import StepIndicator from "@/components/steps/step-indicator"
 
+export type Team={
+  name: string,
+  email: string
+}
+
 export type FormData = {
   name: string
   email: string
@@ -16,7 +21,10 @@ export type FormData = {
   event: string
   paymentId: string
   paymentScreenshot: File | null
-  paymentImage: string
+  paymentImage: string,
+  eventType: string,
+  teamMembers: Team[],
+  totalFee:number
 }
 
 export default function RegistrationForm() {
@@ -31,6 +39,9 @@ export default function RegistrationForm() {
     paymentScreenshot: null,
     paymentId: "",
     paymentImage: "",
+    eventType:"",
+    teamMembers: [],
+    totalFee:0
   })
 
   const updateFormData = (data: Partial<FormData>) => {

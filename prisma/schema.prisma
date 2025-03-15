@@ -9,30 +9,37 @@ datasource db {
 }
 
 model Student {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  email       String    @unique
-  updatedAt   DateTime  @updatedAt
-  name        String
-  phoneNo     String    @map("phone_no") @db.Char(10)
-  collegeName String    @map("college_name")
-  Year        String    @default("1")
-  role        String    @default("Student")
-  payment     Payment[]
-  events      Event[]   @relation("StudentEvents")
+  id              String           @id @default(cuid())
+  createdAt       DateTime         @default(now())
+  email           String           @unique
+  updatedAt       DateTime         @updatedAt
+  name            String
+  phoneNo         String           @map("phone_no") @db.Char(10)
+  collegeName     String           @map("college_name")
+  Year            String           @default("1")
+  role            String           @default("Student")
+  payment         Payment[]
+  registrations   Registration[]
+  events          Event[]          @relation("StudentEvents")
+  teamMembers     TeamMember[]     @relation("TeamLeader")
+  isMemberOf      TeamMember?      @relation("TeamMember")
 
   @@index([email, name])
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  image         String
-  paymentStatus String   @default("Unpaid")
-  paymentMethod String   @default("UPI")
-  Student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  studentId     String   @unique
+  id                String         @id @default(cuid())
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  image             String
+  paymentStatus     String         @default("Unpaid")
+  paymentMethod     String         @default("UPI")
+  paymentId         String         @unique
+  amount            Float          @default(100)
+  Student           Student        @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studentId         String
+  registration      Registration?  @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  registrationId    String?        @unique
 }
 
 model Admin {
@@ -42,17 +49,54 @@ model Admin {
 }
 
 model Event {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  title       String
-  description String
-  time        String
-  location    String
-  category    String
-  date        String
-  students    Student[] @relation("StudentEvents")
-  eventImage  String
+  id              String          @id @default(cuid())
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  title           String
+  description     String
+  time            String
+  location        String
+  category        String
+  date            String
+  basePrice       Float           @default(100)
+  allowGroups     Boolean         @default(false)
+  maxGroupSize    Int             @default(5)
+  students        Student[]       @relation("StudentEvents")
+  registrations   Registration[]
+  eventImage      String
 
   @@index([title, date])
+}
+
+model Registration {
+  id               String         @id @default(cuid())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  registrationType String         @default("individual")
+  totalAmount      Float
+  participantCount Int            @default(1)
+  payment          Payment?
+  student          Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId        String
+  event            Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId          String
+  teamMembers      TeamMember[]   @relation("RegistrationTeam")
+
+  @@index([studentId, eventId])
+  @@index([registrationType, eventId])
+}
+
+model TeamMember {
+  id                String        @id @default(cuid())
+  name              String
+  email             String
+  teamLeader        Student       @relation("TeamLeader", fields: [teamLeaderId], references: [id], onDelete: Cascade)
+  teamLeaderId      String
+  registration      Registration  @relation("RegistrationTeam", fields: [registrationId], references: [id], onDelete: Cascade)
+  registrationId    String
+  studentMember     Student?      @relation("TeamMember", fields: [studentMemberId], references: [id])
+  studentMemberId   String?       @unique
+
+  @@unique([registrationId])
+  @@index([teamLeaderId, registrationId])
 }

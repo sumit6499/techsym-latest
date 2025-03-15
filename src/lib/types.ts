@@ -1,3 +1,8 @@
+
+type Team ={
+  name:string,
+  email:string
+}
 export interface Student {
     id: number
     name: string
@@ -6,7 +11,8 @@ export interface Student {
     registrationDate: string
     isPaid: boolean
     paymentMethod?: string
-    paymentImage: string
+    paymentImage: string,
+    teamMembers: Team[]
   }
   
   export interface Event {

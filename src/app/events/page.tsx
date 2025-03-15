@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 
 export default async function EventsPage() {
   const events = await db.event.findMany({
-    orderBy: { date: "asc" }, // Order by date
+    orderBy: { date: "asc" },
   });
 
   return (
