@@ -9,14 +9,14 @@ import { CustomError } from "@/lib/error";
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
-    const { 
-      name, 
-      phone, 
-      collegeName, 
-      year, 
-      paymentImage, 
-      paymentMethod, 
-      email, 
+    const {
+      name,
+      phone,
+      collegeName,
+      year,
+      paymentImage,
+      paymentMethod,
+      email,
       event,
       eventType = "individual",
       teamMembers = [],
@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
       totalFee = 100,
     } = studentSchema.parse(payload);
 
-    const existingEvent = await db.event.findFirst({
+    // ✅ Check if the event exists
+    const existingEvent = await db.event.findUnique({
       where: { id: event },
       select: { id: true },
     });
@@ -36,15 +37,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const isAlreadyRegistered = await db.student.findFirst({
+    // ✅ Check if the student is already registered for this event
+    const isAlreadyRegistered = await db.registration.findFirst({
       where: {
-        email: email,
-        events: {
-          some: { id: existingEvent.id },
-        },
+        student: { email },
+        event: { id: existingEvent.id },
       },
     });
- 
+
     if (isAlreadyRegistered) {
       return new NextResponse(
         JSON.stringify({ msg: "Student is already registered for this event" }),
@@ -52,9 +52,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const participantCount = eventType === "group" ? teamMembers.length + 1 : 1;
+    // ✅ Fetch existing team members to prevent multiple DB queries in loop
+    const existingStudents = await db.student.findMany({
+      where: { email: { in: teamMembers.map((m) => m.email) } },
+    });
 
+    // ✅ Use Prisma transaction to handle all operations atomically
     const result = await db.$transaction(async (prisma) => {
+      // 1️⃣ Register the student
       const student = await prisma.student.create({
         data: {
           name,
@@ -62,26 +67,22 @@ export async function POST(req: NextRequest) {
           phoneNo: phone,
           collegeName,
           Year: year,
-          events: {
-            connect: { id: existingEvent.id },
-          },
+          events: { connect: { id: existingEvent.id } },
         },
       });
 
+      // 2️⃣ Register the student for the event
       const registration = await prisma.registration.create({
         data: {
           registrationType: eventType,
           totalAmount: totalFee,
-          participantCount,
-          student: {
-            connect: { id: student.id },
-          },
-          event: {
-            connect: { id: existingEvent.id },
-          },
+          participantCount: eventType === "group" ? teamMembers.length + 1 : 1,
+          student: { connect: { id: student.id } },
+          event: { connect: { id: existingEvent.id } },
         },
       });
 
+      // 3️⃣ Add payment details
       const payment = await prisma.payment.create({
         data: {
           image: paymentImage,
@@ -89,36 +90,23 @@ export async function POST(req: NextRequest) {
           paymentStatus: "Paid",
           paymentId,
           amount: totalFee,
-          Student: {
-            connect: { id: student.id },
-          },
-          registration: {
-            connect: { id: registration.id },
-          },
+          Student: { connect: { id: student.id } },
+          registration: { connect: { id: registration.id } },
         },
       });
 
+      // 4️⃣ Add team members (if group registration)
       if (eventType === "group" && teamMembers.length > 0) {
-        const teamMemberPromises = teamMembers.map(async (member: { name: string; email: string }) => {
-          const existingStudent = await prisma.student.findUnique({
-            where: { email: member.email },
-          });
+        const teamMemberPromises = teamMembers.map((member) => {
+          const existingStudent = existingStudents.find((s) => s.email === member.email);
 
           return prisma.teamMember.create({
             data: {
               name: member.name,
               email: member.email,
-              teamLeader: {
-                connect: { id: student.id },
-              },
-              registration: {
-                connect: { id: registration.id },
-              },
-              ...(existingStudent && {
-                studentMember: {
-                  connect: { id: existingStudent.id },
-                },
-              }),
+              teamLeader: { connect: { id: student.id } },
+              registration: { connect: { id: registration.id } },
+              ...(existingStudent && { studentMember: { connect: { id: existingStudent.id } } }),
             },
           });
         });
@@ -129,14 +117,16 @@ export async function POST(req: NextRequest) {
       return { student, registration, payment };
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       student: result.student,
       registration: result.registration,
-      payment: result.payment
-    }, { status: 201 });
-    
+      payment: result.payment,
+    }, { status: HTTP_CODE.CREATED });
+
   } catch (error) {
+    console.error("Error registering student:", error);
+
     if (error instanceof ZodError) {
       return new NextResponse(
         JSON.stringify({ msg: error.flatten().fieldErrors, error: error.flatten().formErrors }),
@@ -145,18 +135,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (error instanceof CustomError) {
-      return new Response(JSON.stringify({ msg: error.message }), { status: error.statusCode });
+      return new NextResponse(
+        JSON.stringify({ msg: error.message }),
+        { status: error.statusCode, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     if (error instanceof PrismaClientInitializationError) {
-      console.log(error);
       return new NextResponse(
-        JSON.stringify({ msg: "Database Initialization error", err: "Prisma Initialization error" }),
+        JSON.stringify({ msg: "Database Initialization error" }),
         { status: HTTP_CODE.BAD_REQUEST, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    console.error("Error registering student:", error);
-    return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: HTTP_CODE.SERVER_ERROR });
+    return new NextResponse(
+      JSON.stringify({ success: false, error: "Internal Server Error" }),
+      { status: HTTP_CODE.SERVER_ERROR, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
